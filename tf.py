@@ -10,6 +10,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from collections import namedtuple
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.model_selection import train_test_split
+
 """
 /TODO
     * Change familysize to a binary alone or not
@@ -56,6 +60,18 @@ def set_alone(df):
 
     return df
 
+    
+def split_valid_test_data(data, fraction=(1 - 0.8)):
+    data_y = data["Survived"]
+    lb = LabelBinarizer()
+    data_y = lb.fit_transform(data_y)
+
+    data_x = data.drop(["Survived"], axis=1)
+
+    train_x, valid_x, train_y, valid_y = train_test_split(data_x, data_y, test_size=fraction)
+
+    return train_x.values, train_y, valid_x, valid_y
+
 def dummy_data(data, columns):
     for column in columns:
         data = pd.concat([data, pd.get_dummies(data[column], prefix=column)], axis=1)
@@ -74,7 +90,6 @@ def normalize_age(data):
     data["Age"] = scaler.fit_transform(data["Age"].values.reshape(-1,1))
 
     return data
-
 
 """
     Drops columns that serves no purpose during feature extraction
@@ -127,22 +142,69 @@ def add_columns(df):
 
     return df
 
-def kaggle_tensorflow(train, test):
-    train = add_columns(train)
-    test = add_columns(test)
+def build_neural_network(classes, hidden_units=10):
+    tf.reset_default_graph()
+    inputs = tf.placeholder(tf.float32, shape=[None, classes])
+    labels = tf.placeholder(tf.float32, shape=[None, 1])
+    learning_rate = tf.placeholder(tf.float32)
+    is_training=tf.Variable(True,dtype=tf.bool)
     
-    train = set_alone(train)
-    test = set_alone(test)
+    initializer = tf.contrib.layers.xavier_initializer()
+    fc = tf.layers.dense(inputs, hidden_units, activation=None,kernel_initializer=initializer)
+    fc=tf.layers.batch_normalization(fc, training=is_training)
+    fc=tf.nn.relu(fc)
+    
+    logits = tf.layers.dense(fc, 1, activation=None)
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
+    cost = tf.reduce_mean(cross_entropy)
+    
+    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-    train = drop_columns(train)
-    test = drop_columns(test)    
-    train = train.drop('PassengerId', axis=1)
-    
-    
-    train_data = train.drop('Survived', axis=1)
-    target = train['Survived']
+    predicted = tf.nn.sigmoid(logits)
+    correct_pred = tf.equal(tf.round(predicted), labels)
+    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-    test_data = test # Placeholder due to laziness
+    # Export the nodes 
+    export_nodes = ['inputs', 'labels', 'learning_rate','is_training', 'logits',
+                    'cost', 'optimizer', 'predicted', 'accuracy']
+    Graph = namedtuple('Graph', export_nodes)
+    local_dict = locals()
+    graph = Graph(*[local_dict[each] for each in export_nodes])
+
+    return graph
+
+
+def kaggle_tensorflow(train_data, test_data):
+    train_data = add_columns(train_data)
+    test_data = add_columns(test_data)
+    
+    train_data = set_alone(train_data)
+    test_data = set_alone(test_data)
+
+    # TODO
+    # Try normalizing age
+
+    dummy_columns = ["Pclass", "Age"]
+    train_data=dummy_data(train_data, dummy_columns)
+    test_data=dummy_data(test_data, dummy_columns)
+
+    train_data = drop_columns(train_data)
+    test_data = drop_columns(test_data)    
+    #train = train.drop('PassengerId', axis=1)
+    #test = test.drop('PassengerId', axis=1) # Remove at fitting time
+    train_x, train_y, valid_x, valid_y = split_valid_test_data(train_data)
+
+    print(f"train_x:{train_x.shape}")
+    print(f"train_y:{train_y.shape}")
+    print(f"train_y content:{train_y[:3]}")
+    print(f"valid_x:{valid_x.shape}")
+    print(f"valid_y:{valid_y.shape}")
+    
+    model = build_neural_network(train_x.shape[1])
+
+    #train_data = train.drop('Survived', axis=1)
+    #target = train['Survived']
 
     print(train_data.head())
     print(test_data.head())
