@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from collections import namedtuple
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import Binarizer
 
 """
 /TODO
@@ -141,6 +142,13 @@ def add_columns(df):
     #df['FamilySize'] = df['FamilySize'].map(FAMILY_MAPPING)
 
     return df
+def get_batch(data_x,data_y,batch_size=32):
+    batch_n=len(data_x)//batch_size
+    for i in range(batch_n):
+        batch_x=data_x[i*batch_size:(i+1)*batch_size]
+        batch_y=data_y[i*batch_size:(i+1)*batch_size]
+        
+        yield batch_x,batch_y
 
 def build_neural_network(classes, hidden_units=10):
     tf.reset_default_graph()
@@ -179,6 +187,8 @@ def kaggle_tensorflow(train_data, test_data):
     train_data = add_columns(train_data)
     test_data = add_columns(test_data)
     
+    test_passenger_id = test_data["PassengerId"]
+    
     train_data = set_alone(train_data)
     test_data = set_alone(test_data)
 
@@ -208,26 +218,93 @@ def kaggle_tensorflow(train_data, test_data):
 
     print(train_data.head())
     print(test_data.head())
+        
+    epochs = 200
+    train_collect = 50
+    train_print=train_collect*2
+
+    learning_rate_value = 0.001
+    batch_size=16
+
+    x_collect = []
+    train_loss_collect = []
+    train_acc_collect = []
+    valid_loss_collect = []
+    valid_acc_collect = []
+
+    saver = tf.train.Saver()
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        iteration=0
+        for e in range(epochs):
+            for batch_x,batch_y in get_batch(train_x,train_y,batch_size):
+                iteration+=1
+                feed = {model.inputs: train_x,
+                        model.labels: train_y,
+                        model.learning_rate: learning_rate_value,
+                        model.is_training:True
+                    }
+
+                train_loss, _, train_acc = sess.run([model.cost, model.optimizer, model.accuracy], feed_dict=feed)
+                
+                if iteration % train_collect == 0:
+                    x_collect.append(e)
+                    train_loss_collect.append(train_loss)
+                    train_acc_collect.append(train_acc)
+
+                    if iteration % train_print==0:
+                        print("Epoch: {}/{}".format(e + 1, epochs),
+                        "Train Loss: {:.4f}".format(train_loss),
+                        "Train Acc: {:.4f}".format(train_acc))
+                            
+                    feed = {model.inputs: valid_x,
+                            model.labels: valid_y,
+                            model.is_training:False
+                        }
+                    val_loss, val_acc = sess.run([model.cost, model.accuracy], feed_dict=feed)
+                    valid_loss_collect.append(val_loss)
+                    valid_acc_collect.append(val_acc)
+                    
+                    if iteration % train_print==0:
+                        print("Epoch: {}/{}".format(e + 1, epochs),
+                        "Validation Loss: {:.4f}".format(val_loss),
+                        "Validation Acc: {:.4f}".format(val_acc))
+                    
+
+        #saver.save(sess, "./titanic.ckpt")
+
+    plt.plot(x_collect, train_loss_collect, "r--")
+    plt.plot(x_collect, valid_loss_collect, "g^")
+    plt.show()
+
+    plt.plot(x_collect, train_acc_collect, "r--")
+    plt.plot(x_collect, valid_acc_collect, "g^")
+    plt.show()
+
     
+    model=build_neural_network(train_x.shape[1])
+    restorer=tf.train.Saver()
+    with tf.Session() as sess:
+        restorer.restore(sess,"./titanic.ckpt")
+        feed={
+            model.inputs:test_data,
+            model.is_training:False
+        }
+        test_predict=sess.run(model.predicted,feed_dict=feed)
 
-    """
-    if(SUBMIT):
-        clf = SVC()
-        clf.fit(train_data, target)
+    test_predict[:10]
+    
+    binarizer=Binarizer(0.5)
+    test_predict_result=binarizer.fit_transform(test_predict)
+    test_predict_result=test_predict_result.astype(np.int32)
+    test_predict_result[:10]
 
-        test_data = test.drop("PassengerId", axis=1).copy()
-        prediction = clf.predict(test_data)
+    passenger_id=test_passenger_id.copy()
+    evaluation=passenger_id.to_frame()
+    evaluation["Survived"]=test_predict_result
+    evaluation[:10]
 
-        submission = pd.DataFrame({
-            "PassengerId": test["PassengerId"],
-            "Survived": prediction
-        })
-
-        submission.to_csv('submission.csv', index=False)
-
-        submission = pd.read_csv('submission.csv')
-        submission.head()
-    """
+    evaluation.to_csv("tf_submission.csv",index=False)
 
 if __name__ == "__main__":
     train = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/train.csv")
