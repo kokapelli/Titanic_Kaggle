@@ -168,14 +168,9 @@ def kaggle_tensorflow(train_data, test_data):
 
     train_data = drop_columns(train_data)
     test_data = drop_columns(test_data)    
-    #train = train.drop('PassengerId', axis=1)
-    #test = test.drop('PassengerId', axis=1) # Remove at fitting time
     train_x, train_y, valid_x, valid_y = split_valid_test_data(train_data)
 
     model = build_neural_network(train_x.shape[1])
-
-    #train_data = train.drop('Survived', axis=1)
-    #target = train['Survived']
 
     print(train_data.head())
         
@@ -270,8 +265,6 @@ def kaggle_tensorflow(train_data, test_data):
 if __name__ == "__main__":
     train = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/train.csv")
     test = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/test.csv")
-
-    # https://www.kaggle.com/linxinzhe/tensorflow-deep-learning-to-solve-titanic
     kaggle_tensorflow(train, test)
 
     

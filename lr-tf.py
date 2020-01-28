@@ -133,10 +133,12 @@ def kaggle_tensorflow(train_data, X_test):
     
     X_train, X_dev, y_train, y_dev = train_test_split(X, y, test_size=0.1, random_state=0)
 
+    """
     print("\n", X.shape, y.shape, X_test.shape)
     print(list(X.columns.values))
     print(list(X_test.columns.values))
-        
+    """
+    
     seed = 7                        # for reproducible purpose
     input_size = X_train.shape[1]   # number of features
     learning_rate = 0.001           # most common value for Adam
@@ -197,8 +199,6 @@ def kaggle_tensorflow(train_data, X_test):
 if __name__ == "__main__":
     train = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/train.csv")
     test = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/test.csv")
-
-    # https://www.kaggle.com/abevallerian/titanic-with-tensorflow
     kaggle_tensorflow(train, test)
 
     
