@@ -1,10 +1,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
+from misc import *
 
 import tensorflow as tf
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -14,23 +14,13 @@ from collections import namedtuple
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Binarizer
+from sklearn.preprocessing import MinMaxScaler
 
 """
 /TODO
     * Change familysize to a binary alone or not
     * Create a one hot encoding for every categorical column
 """
-#survival	Survival	        0 = No, 1 = Yes
-#pclass	    Ticket class	    1 = 1st, 2 = 2nd, 3 = 3rd
-#sex	    Sex	
-#Age	    Age in years	
-#sibsp	    # of siblings / spouses aboard the Titanic	
-#parch	    # of parents / children aboard the Titanic	
-#ticket	    Ticket number	
-#fare	    Passenger fare	
-#cabin	    Cabin number	
-#embarked	Port of Embarkation	 C = Cherbourg, Q = Queenstown, S = Southampton
-
 fc = tf.feature_column
 CATEGORICAL_COLUMNS = ['Sex', 'SibSp', 'Parch', 'Pclass', 'Cabin',
                     'Embarked', 'Alone', 'Survived']
@@ -42,24 +32,19 @@ SEX_MAPPING = {"male": 0, "female": 1}
 EMBARKED_MAPPING = {"S": 0, "C": 1, "Q": 2}
 CABIN_MAPPING = {"A": 0, "B": 0.4, "C": 0.8, "D": 1.2, "E": 1.6, "F": 2, "G": 2.4, "T": 2.8}
 FAMILY_MAPPING = {1: 0, 2: 0.4, 3: 0.8, 4: 1.2, 5: 1.6, 6: 2, 7: 2.4, 8: 2.8, 9: 3.2, 10: 3.6, 11: 4}
-SUBMIT = True
+TRAIN = True
+TEST = False
 
-def one_hot_cat_column(feature_name, vocab):
-    return tf.feature_column.indicator_column(
-        tf.feature_column.categorical_column_with_vocabulary_list(
-        feature_name, vocab))
-
-def set_alone(df):
-    alone = list()
-    for index, row in df.iterrows():
-        if(row['SibSp'] == 0 and row['Parch'] == 0):
-            alone.append(1)
-        else:
-            alone.append(0)
-
-    df['Alone'] = alone
-
-    return df
+#survival	Survival	        0 = No, 1 = Yes
+#pclass	    Ticket class	    1 = 1st, 2 = 2nd, 3 = 3rd
+#sex	    Sex	
+#Age	    Age in years	
+#sibsp	    # of siblings / spouses aboard the Titanic	
+#parch	    # of parents / children aboard the Titanic	
+#ticket	    Ticket number	
+#fare	    Passenger fare	
+#cabin	    Cabin number	
+#embarked	Port of Embarkation	 C = Cherbourg, Q = Queenstown, S = Southampton
 
     
 def split_valid_test_data(data, fraction=(1 - 0.8)):
@@ -73,31 +58,13 @@ def split_valid_test_data(data, fraction=(1 - 0.8)):
 
     return train_x.values, train_y, valid_x, valid_y
 
-def dummy_data(data, columns):
-    for column in columns:
-        data = pd.concat([data, pd.get_dummies(data[column], prefix=column)], axis=1)
-        data = data.drop(column, axis=1)
-    return data
-
-def get_column_list(data):
-    column_list = list()
-    for col in data.columns: 
-        column_list.append(col)
-
-    return column_list
-
-def normalize_age(data):
-    scaler = MinMaxScaler()
-    data["Age"] = scaler.fit_transform(data["Age"].values.reshape(-1,1))
-
-    return data
-
 """
     Drops columns that serves no purpose during feature extraction
 """
 def drop_columns(df):
     # 'PassengerId'
-    column_drops = ['Name', 'Ticket', 'SibSp', 'Parch']
+    # , 'SibSp', 'Parch'
+    column_drops = ['Name', 'Ticket']
     df = df.drop(column_drops, axis=1)
 
     return df
@@ -123,7 +90,7 @@ def add_columns(df):
     df.loc[(df['Age'] > 36) & (df['Age'] <= 62), 'Age'] = 3,
     df.loc[ df['Age'] > 62, 'Age'] = 4
     
-    #normalize_age(df)
+    #df = normalize_age(df)
     
     df['Embarked'] = df['Embarked'].fillna('S')
     df['Embarked'] = df['Embarked'].map(EMBARKED_MAPPING)
@@ -155,12 +122,12 @@ def build_neural_network(classes, hidden_units=10):
     inputs = tf.placeholder(tf.float32, shape=[None, classes])
     labels = tf.placeholder(tf.float32, shape=[None, 1])
     learning_rate = tf.placeholder(tf.float32)
-    is_training=tf.Variable(True,dtype=tf.bool)
+    is_training = tf.Variable(True,dtype=tf.bool)
     
     initializer = tf.contrib.layers.xavier_initializer()
     fc = tf.layers.dense(inputs, hidden_units, activation=None,kernel_initializer=initializer)
-    fc=tf.layers.batch_normalization(fc, training=is_training)
-    fc=tf.nn.relu(fc)
+    fc = tf.layers.batch_normalization(fc, training=is_training)
+    fc = tf.nn.relu(fc)
     
     logits = tf.layers.dense(fc, 1, activation=None)
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
@@ -194,10 +161,10 @@ def kaggle_tensorflow(train_data, test_data):
 
     # TODO
     # Try normalizing age
-
-    dummy_columns = ["Pclass", "Age"]
-    train_data=dummy_data(train_data, dummy_columns)
-    test_data=dummy_data(test_data, dummy_columns)
+    
+    dummy_columns = ["Pclass"]
+    train_data = dummy_data(train_data, dummy_columns)
+    test_data  = dummy_data(test_data,  dummy_columns)
 
     train_data = drop_columns(train_data)
     test_data = drop_columns(test_data)    
@@ -205,26 +172,19 @@ def kaggle_tensorflow(train_data, test_data):
     #test = test.drop('PassengerId', axis=1) # Remove at fitting time
     train_x, train_y, valid_x, valid_y = split_valid_test_data(train_data)
 
-    print(f"train_x:{train_x.shape}")
-    print(f"train_y:{train_y.shape}")
-    print(f"train_y content:{train_y[:3]}")
-    print(f"valid_x:{valid_x.shape}")
-    print(f"valid_y:{valid_y.shape}")
-    
     model = build_neural_network(train_x.shape[1])
 
     #train_data = train.drop('Survived', axis=1)
     #target = train['Survived']
 
     print(train_data.head())
-    print(test_data.head())
         
-    epochs = 200
+    epochs = 400
     train_collect = 50
     train_print=train_collect*2
 
-    learning_rate_value = 0.001
-    batch_size=16
+    learning_rate_value = 0.0001
+    batch_size=32
 
     x_collect = []
     train_loss_collect = []
@@ -232,79 +192,80 @@ def kaggle_tensorflow(train_data, test_data):
     valid_loss_collect = []
     valid_acc_collect = []
 
-    saver = tf.train.Saver()
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        iteration=0
-        for e in range(epochs):
-            for batch_x,batch_y in get_batch(train_x,train_y,batch_size):
-                iteration+=1
-                feed = {model.inputs: train_x,
-                        model.labels: train_y,
-                        model.learning_rate: learning_rate_value,
-                        model.is_training:True
-                    }
-
-                train_loss, _, train_acc = sess.run([model.cost, model.optimizer, model.accuracy], feed_dict=feed)
-                
-                if iteration % train_collect == 0:
-                    x_collect.append(e)
-                    train_loss_collect.append(train_loss)
-                    train_acc_collect.append(train_acc)
-
-                    if iteration % train_print==0:
-                        print("Epoch: {}/{}".format(e + 1, epochs),
-                        "Train Loss: {:.4f}".format(train_loss),
-                        "Train Acc: {:.4f}".format(train_acc))
-                            
-                    feed = {model.inputs: valid_x,
-                            model.labels: valid_y,
-                            model.is_training:False
+    if(TRAIN):
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            iteration=0
+            for e in range(epochs):
+                for batch_x,batch_y in get_batch(train_x,train_y,batch_size):
+                    iteration+=1
+                    feed = {model.inputs: train_x,
+                            model.labels: train_y,
+                            model.learning_rate: learning_rate_value,
+                            model.is_training:True
                         }
-                    val_loss, val_acc = sess.run([model.cost, model.accuracy], feed_dict=feed)
-                    valid_loss_collect.append(val_loss)
-                    valid_acc_collect.append(val_acc)
+
+                    train_loss, _, train_acc = sess.run([model.cost, model.optimizer, model.accuracy], feed_dict=feed)
                     
-                    if iteration % train_print==0:
-                        print("Epoch: {}/{}".format(e + 1, epochs),
-                        "Validation Loss: {:.4f}".format(val_loss),
-                        "Validation Acc: {:.4f}".format(val_acc))
-                    
+                    if iteration % train_collect == 0:
+                        x_collect.append(e)
+                        train_loss_collect.append(train_loss)
+                        train_acc_collect.append(train_acc)
 
-        #saver.save(sess, "./titanic.ckpt")
+                        if iteration % train_print==0:
+                            print("Epoch: {}/{}".format(e + 1, epochs),
+                            "Train Loss: {:.4f}".format(train_loss),
+                            "Train Acc: {:.4f}".format(train_acc))
+                                
+                        feed = {model.inputs: valid_x,
+                                model.labels: valid_y,
+                                model.is_training:False
+                            }
+                        val_loss, val_acc = sess.run([model.cost, model.accuracy], feed_dict=feed)
+                        valid_loss_collect.append(val_loss)
+                        valid_acc_collect.append(val_acc)
+                        
+                        if iteration % train_print==0:
+                            print("Epoch: {}/{}".format(e + 1, epochs),
+                            "Validation Loss: {:.4f}".format(val_loss),
+                            "Validation Acc: {:.4f}".format(val_acc))
+                        
 
-    plt.plot(x_collect, train_loss_collect, "r--")
-    plt.plot(x_collect, valid_loss_collect, "g^")
-    plt.show()
+            saver.save(sess, "./titanic.ckpt")
 
-    plt.plot(x_collect, train_acc_collect, "r--")
-    plt.plot(x_collect, valid_acc_collect, "g^")
-    plt.show()
+        plt.plot(x_collect, train_loss_collect, "r--")
+        plt.plot(x_collect, valid_loss_collect, "g^")
+        plt.show()
 
-    
-    model=build_neural_network(train_x.shape[1])
-    restorer=tf.train.Saver()
-    with tf.Session() as sess:
-        restorer.restore(sess,"./titanic.ckpt")
-        feed={
-            model.inputs:test_data,
-            model.is_training:False
-        }
-        test_predict=sess.run(model.predicted,feed_dict=feed)
+        plt.plot(x_collect, train_acc_collect, "r--")
+        plt.plot(x_collect, valid_acc_collect, "g^")
+        plt.show()
 
-    test_predict[:10]
-    
-    binarizer=Binarizer(0.5)
-    test_predict_result=binarizer.fit_transform(test_predict)
-    test_predict_result=test_predict_result.astype(np.int32)
-    test_predict_result[:10]
+        if(TEST):
+            model=build_neural_network(train_x.shape[1])
+            restorer=tf.train.Saver()
+            with tf.Session() as sess:
+                restorer.restore(sess,"./titanic.ckpt")
+                feed={
+                    model.inputs:test_data,
+                    model.is_training:False
+                }
+                test_predict=sess.run(model.predicted,feed_dict=feed)
 
-    passenger_id=test_passenger_id.copy()
-    evaluation=passenger_id.to_frame()
-    evaluation["Survived"]=test_predict_result
-    evaluation[:10]
+            test_predict[:10]
+            
+            binarizer=Binarizer(0.5)
+            test_predict_result=binarizer.fit_transform(test_predict)
+            test_predict_result=test_predict_result.astype(np.int32)
+            test_predict_result[:10]
 
-    evaluation.to_csv("tf_submission.csv",index=False)
+            passenger_id=test_passenger_id.copy()
+            evaluation=passenger_id.to_frame()
+            evaluation["Survived"]=test_predict_result
+            evaluation[:10]
+
+            evaluation.to_csv("tf_submission.csv",index=False)
 
 if __name__ == "__main__":
     train = pd.read_csv("/Users/Kukus/Desktop/Titanic_Kaggle/Data/train.csv")

@@ -19,16 +19,7 @@ from sklearn.preprocessing import MinMaxScaler
     * Change familysize to a binary alone or not
     * Create a one hot encoding for every categorical column
 """
-#survival	Survival	        0 = No, 1 = Yes
-#pclass	    Ticket class	    1 = 1st, 2 = 2nd, 3 = 3rd
-#sex	    Sex	
-#Age	    Age in years	
-#sibsp	    # of siblings / spouses aboard the Titanic	
-#parch	    # of parents / children aboard the Titanic	
-#ticket	    Ticket number	
-#fare	    Passenger fare	
-#cabin	    Cabin number	
-#embarked	Port of Embarkation	 C = Cherbourg, Q = Queenstown, S = Southampton
+
 
 fc = tf.feature_column
 CATEGORICAL_COLUMNS = ['Sex', 'SibSp', 'Parch', 'Pclass', 'Cabin',
@@ -41,7 +32,19 @@ SEX_MAPPING = {"male": 0, "female": 1}
 EMBARKED_MAPPING = {"S": 0, "C": 1, "Q": 2}
 CABIN_MAPPING = {"A": 0, "B": 0.4, "C": 0.8, "D": 1.2, "E": 1.6, "F": 2, "G": 2.4, "T": 2.8}
 FAMILY_MAPPING = {1: 0, 2: 0.4, 3: 0.8, 4: 1.2, 5: 1.6, 6: 2, 7: 2.4, 8: 2.8, 9: 3.2, 10: 3.6, 11: 4}
-SUBMIT = True
+SUBMIT = False
+
+#survival	Survival	        0 = No, 1 = Yes
+#pclass	    Ticket class	    1 = 1st, 2 = 2nd, 3 = 3rd
+#sex	    Sex	
+#Age	    Age in years	
+#sibsp	    # of siblings / spouses aboard the Titanic	
+#parch	    # of parents / children aboard the Titanic	
+#ticket	    Ticket number	
+#fare	    Passenger fare	
+#cabin	    Cabin number	
+#embarked	Port of Embarkation	 C = Cherbourg, Q = Queenstown, S = Southampton
+
 
 def one_hot_cat_column(feature_name, vocab):
     return tf.feature_column.indicator_column(
